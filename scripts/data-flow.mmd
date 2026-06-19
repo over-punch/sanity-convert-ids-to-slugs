@@ -1,0 +1,22 @@
+%% Data-flow / operation model for @liiift-studio/sanity-convert-ids-to-slugs
+%% Rendered to assets/data-flow.svg by `npm run capture` (scripts/capture.mjs).
+flowchart TD
+    A["Pick a typeface<br/>(Danger Mode panel)"] --> B{{"GROQ: resolve<br/>the typeface's font _refs"}}
+    B --> C[("Sanity dataset")]
+
+    C --> D["For each font _id"]
+    D --> E{"Has slug.current?"}
+    E -->|"No"| S["Skip — log 'No Slug Found'"]
+    E -->|"Yes"| F["createOrReplace<br/>doc under _id = slug.current"]
+
+    F --> G["Find every referencing doc<br/>references(oldId)"]
+    G --> H["Rewrite _ref: oldId → slug<br/>patch().set().commit()"]
+    H --> I["delete(oldId)<br/>remove the original — irreversible"]
+    I --> C
+
+    classDef danger fill:#3a1212,stroke:#e03e3e,color:#ffd9d9;
+    classDef store fill:#1a1a2e,stroke:#6b6bd6,color:#dcdcff;
+    classDef skip fill:#2a2a2a,stroke:#888,color:#ddd;
+    class F,H,I danger;
+    class C store;
+    class S skip;

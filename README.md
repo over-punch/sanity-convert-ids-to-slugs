@@ -1,2 +1,222 @@
-# sanity-convert-ids-to-slugs
-URL optimization utility for Sanity Studio - generate SEO-friendly slugs for any document types with custom patterns and validation
+# Sanity Convert IDs to Slugs
+
+A Sanity Studio utility component that **migrates a typeface's font document `_id`s from auto-generated IDs to slug-based IDs** — and, in the same pass, **rewrites every reference and deletes the originals** so nothing is left dangling. The payoff is cleaner, human-readable document IDs (and the tidier URLs and content management that follow); the mechanism is a destructive, irreversible migration, gated behind an explicit Danger Mode.
+
+[![npm](https://img.shields.io/npm/v/@liiift-studio/sanity-convert-ids-to-slugs.svg)](https://www.npmjs.com/package/@liiift-studio/sanity-convert-ids-to-slugs)
+![Sanity](https://img.shields.io/badge/Sanity-v3%20%7C%20v4%20%7C%20v5-f03e2f.svg)
+![React](https://img.shields.io/badge/React-18%20%7C%2019-61dafb.svg)
+![license](https://img.shields.io/badge/license-MIT-blue.svg)
+
+> **Heads up — this tool rewrites and deletes documents.** For each font it
+> create-replaces the document under a **new `_id`** (the slug), repoints every
+> referencing document, then **deletes the original**. This is **irreversible**
+> and there is **no dry-run** in the published build. Read
+> [Safety model](#safety-model) and **back up your dataset** before running it
+> on production data.
+
+---
+
+## How it works
+
+You give it a Sanity client and toggle on Danger Mode. It loads the `typeface`
+documents in your dataset; you pick one. On **Convert**, it resolves that
+typeface's font references (`styles.fonts[]._ref`) and, for each font that has a
+`slug.current`, it:
+
+1. **Create-replaces** the document under a new `_id` equal to `slug.current`
+   (`client.createOrReplace`).
+2. **Finds every document that references the old ID** (`references(oldId)`) and
+   rewrites each `_ref` from the old ID to the slug (`patch().set().commit()`).
+3. **Deletes the original document** (`client.delete(oldId)`).
+
+Fonts without a `slug.current` are skipped and logged. Progress is reported to
+the browser console.
+
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/Liiift-Studio/sanity-convert-ids-to-slugs/main/assets/data-flow.svg?v=1"
+    alt="Data flow: pick a typeface in the Danger Mode panel; a GROQ query resolves the typeface's font references against the Sanity dataset; for each font _id, if it has a slug.current the tool create-replaces the document under the slug as its new _id, rewrites every referencing document from the old ID to the slug, and deletes the original (irreversible) — fonts without a slug are skipped."
+    width="560"
+  />
+</p>
+
+Regenerate the diagram with `npm run capture` (source: `scripts/data-flow.mmd`).
+
+---
+
+## Features
+
+- 🔑 **ID → slug migration** — replaces auto-generated document `_id`s with their
+  own `slug.current`, giving you readable, stable IDs.
+- 🔗 **Automatic reference updating** — every document that referenced the old ID
+  is repointed to the new slug-based ID, so no reference is left dangling.
+- 🧹 **Old document cleanup** — the original auto-ID document is deleted once its
+  references have moved.
+- 🛡️ **Danger-Mode gated** — the convert UI only appears behind an explicit,
+  modal-confirmed Danger Mode toggle (suppressible for 48 hours).
+- 🧰 **Drop-in component** — a plain React component for Sanity Studio; mount it
+  in a tool, a structure view, or a dashboard widget.
+
+---
+
+## Installation
+
+```bash
+npm install @liiift-studio/sanity-convert-ids-to-slugs
+```
+
+> The package is **scoped** — use the full `@liiift-studio/…` name. There is no
+> unscoped `sanity-convert-ids-to-slugs` package.
+
+---
+
+## Requirements
+
+This package declares the following peer dependencies (you provide them):
+
+| Peer | Supported range |
+|------|-----------------|
+| `sanity` | `^3 \|\| ^4 \|\| ^5` |
+| `react` | `^18 \|\| ^19` |
+| `@sanity/ui` | `^1 \|\| ^2 \|\| ^3` |
+| `@sanity/icons` | `^2 \|\| ^3` |
+
+The `client` you pass must have **write and delete** access for the conversion
+to commit.
+
+---
+
+## Quick start
+
+The package's **default export** is the `ConvertIdsToSlug` component. Render it
+inside a Sanity Studio tool, dashboard widget, or any custom view, passing it a
+client and a small amount of state to track Danger Mode.
+
+```tsx
+import {useState} from 'react'
+import {useClient} from 'sanity'
+import {TransferIcon} from '@sanity/icons'
+import ConvertIdsToSlug from '@liiift-studio/sanity-convert-ids-to-slugs'
+
+export default function IdSlugMigrator() {
+	const client = useClient({apiVersion: '2024-01-01'})
+	const [dangerMode, setDangerMode] = useState(false)
+
+	return (
+		<ConvertIdsToSlug
+			client={client}
+			displayName="Convert IDs to Slug"
+			icon={TransferIcon}
+			utilityId="convert-ids-to-slug"
+			dangerMode={dangerMode}
+			onDangerModeChange={(_utilityId, enabled) => setDangerMode(enabled)}
+		/>
+	)
+}
+```
+
+The component asks for danger-mode *intent* (via `onDangerModeChange`), but
+**you own the `dangerMode` boolean** — keep it in state and scope it however your
+Studio needs. The typeface picker and **Convert** button only render while
+`dangerMode` is `true`.
+
+### Mounting it in Studio
+
+`ConvertIdsToSlug` is a plain component, so wire it in wherever you put custom UI.
+A minimal tool registration:
+
+```tsx
+// sanity.config.ts
+import {defineConfig} from 'sanity'
+import {TransferIcon} from '@sanity/icons'
+import IdSlugMigrator from './IdSlugMigrator' // the component from the quick start above
+
+export default defineConfig({
+	// ...project, dataset, plugins, schema...
+	tools: (prev) => [
+		...prev,
+		{
+			name: 'convert-ids-to-slug',
+			title: 'Convert IDs to Slug',
+			icon: TransferIcon,
+			component: IdSlugMigrator,
+		},
+	],
+})
+```
+
+`utilityId` is a stable string you assign per instance. It is echoed back as the
+first argument to `onDangerModeChange`, so if you render several utilities you
+can tell which one toggled Danger Mode and track each one's state independently.
+
+---
+
+## Props
+
+`ConvertIdsToSlug` (default export):
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `client` | `SanityClient` | ✅ | Authenticated Sanity client (typically from `useClient`). Needs **write and delete** access for the migration to commit. |
+| `displayName` | `string` | ✅ | Heading shown above the utility. |
+| `utilityId` | `string` | ✅ | Stable identifier for this instance, passed back in `onDangerModeChange`. |
+| `dangerMode` | `boolean` | ✅ | Whether the destructive convert UI is shown. You control this value. |
+| `onDangerModeChange` | `(utilityId: string, enabled: boolean) => void` | ✅ | Called when the user toggles Danger Mode (after confirming the warning modal). |
+| `icon` | `React.ComponentType<{style?: React.CSSProperties}>` | – | Optional icon rendered in the heading. |
+
+---
+
+## Data-model assumptions
+
+The published component is built for this monorepo's **typeface → fonts** model
+rather than an arbitrary document type. Concretely, it:
+
+- queries `*[_type == "typeface"]` to populate the picker;
+- reads the selected typeface's font references from `styles.fonts[]._ref`;
+- migrates each referenced font document whose `slug.current` is set, using that
+  slug as the new `_id`.
+
+If your schema differs, adapt the source (`src/ConvertIdsToSlug.jsx`) — the
+field paths and `_type` are not yet configurable via props.
+
+---
+
+## Safety model
+
+This utility performs **destructive, irreversible** writes. Treat every run as a
+one-way migration:
+
+- **Create-replace + delete.** Each font document is rewritten under a new `_id`
+  (the slug) and the **original is deleted**. There is no automatic undo.
+- **Reference rewriting.** Every document referencing the old ID is patched to
+  point at the new slug-based ID. A failure partway through can leave a mix of
+  old and new IDs, so review the console output.
+- **No dry-run** in the published build. Nothing is previewed before it commits.
+- **Danger Mode gate.** The convert UI is hidden until you enable Danger Mode,
+  which raises a warning modal. The warning can be suppressed for 48 hours
+  (`localStorage`), so it will **not** re-prompt every time.
+
+Before running on real data: **publish your pending changes**, **back up the
+dataset** (e.g. `sanity dataset export`), and verify on a copy first.
+
+---
+
+## Regenerating the diagram
+
+The data-flow diagram is generated from a committed source so anyone can refresh
+it after a behavior change:
+
+```bash
+npm run capture   # renders scripts/data-flow.mmd -> assets/data-flow.svg
+```
+
+It uses [`@mermaid-js/mermaid-cli`](https://github.com/mermaid-js/mermaid-cli)
+via `npx`. The `assets/` directory is intentionally kept **out of the npm
+tarball** (only `dist` and `src` are published); registries pull README images
+from the repo over absolute raw URLs.
+
+---
+
+## License
+
+MIT © Quinn Keaveney
