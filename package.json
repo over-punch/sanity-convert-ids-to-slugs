@@ -1,6 +1,6 @@
 {
 	"name": "@liiift-studio/sanity-convert-ids-to-slugs",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Convert document IDs to slug-based IDs in Sanity Studio with automatic reference updating",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
