@@ -3,8 +3,8 @@
 A Sanity Studio utility component that **migrates a typeface's font document `_id`s from auto-generated IDs to slug-based IDs** — and, in the same pass, **rewrites every reference and deletes the originals** so nothing is left dangling. The payoff is cleaner, human-readable document IDs (and the tidier URLs and content management that follow); the mechanism is a destructive, irreversible migration, gated behind an explicit Danger Mode.
 
 [![npm](https://img.shields.io/npm/v/@liiift-studio/sanity-convert-ids-to-slugs.svg)](https://www.npmjs.com/package/@liiift-studio/sanity-convert-ids-to-slugs)
-![Sanity](https://img.shields.io/badge/Sanity-v3%20%7C%20v4%20%7C%20v5-f03e2f.svg)
-![React](https://img.shields.io/badge/React-18%20%7C%2019-61dafb.svg)
+![Sanity](https://img.shields.io/badge/Sanity-Studio_v3_to_v6-f03e2f.svg)
+![React](https://img.shields.io/badge/React-18_and_19-61dafb.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
 
 > **Heads up — this tool rewrites and deletes documents.** For each font it
@@ -13,6 +13,58 @@ A Sanity Studio utility component that **migrates a typeface's font document `_i
 > and there is **no dry-run** in the published build. Read
 > [Safety model](#safety-model) and **back up your dataset** before running it
 > on production data.
+
+---
+
+## Blast radius
+
+This is the most destructive tool in the Liiift Sanity suite. It **creates,
+rewrites and deletes documents** in a single unattended pass. Read this in full
+before running it anywhere but a throwaway dataset copy.
+
+| Question | Answer |
+|---|---|
+| **What does it mutate?** | Three separate kinds of write per font: a **new document created** at `_id = slug.current`; **every document that references the old ID patched** to point at the new one; and the **original document deleted**. |
+| **Does it delete?** | **Yes** — `client.delete(oldId)` on every successfully migrated font. |
+| **Is it reversible?** | **No.** There is no undo, no dry-run, and no confirmation beyond the Danger Mode toggle. Recovery means restoring from a `sanity dataset export` you took first. |
+| **Drafts or published?** | **Both, inconsistently — this is the sharpest edge.** See below. |
+| **Blind spot** | `createOrReplace` **silently overwrites** any document that already occupies the target slug ID. See below. |
+| **Scope of a mistake** | The whole reference graph. Every document anywhere in the dataset that references a migrated font gets patched, not just the selected typeface. |
+| **Progress reporting** | **Console only.** The panel itself shows no progress, no success state and no error state — keep the browser console open or you are running blind. |
+
+### Drafts are handled inconsistently
+
+- The **typeface picker** correctly lists published documents only
+  (`!(_id in path('drafts.**'))`).
+- The **conversion itself re-queries** with
+  `*[_type == "typeface" && title match "${title}*"][0]` — **no draft filter, and
+  no ordering**. It can therefore resolve the *draft* of your typeface instead of
+  the published one, and with a prefix match it can resolve a *different*
+  typeface that merely shares the prefix.
+- `*[references(oldId)]` **includes drafts**, so draft documents are patched too.
+- `client.delete(oldId)` removes **only that exact `_id`**. Any
+  **`drafts.<oldId>` is left behind**, still carrying the old ID. Publishing that
+  orphaned draft afterwards resurrects the document you just migrated away from.
+
+**Publish everything before running**, as the panel itself advises — with pending
+drafts in play the outcome is genuinely hard to predict.
+
+### Slug collisions overwrite without warning
+
+The new document is written with
+`client.createOrReplace({...oldDoc, _id: slug})`. If a document **already exists
+at that `_id`** — another font that legitimately owns the slug, or a leftover
+from an earlier run — it is **replaced outright and its contents are lost**. The
+tool does not check for a collision and does not report one.
+
+### A failed run leaves the dataset half-migrated
+
+The migration loop has no error handling. If any step throws — a permissions
+error, a network blip, a strong reference refusing a delete — the loop aborts
+where it stands. Fonts already processed stay migrated; the rest do not. A font
+can also be left with the **new document created but the old one not yet
+deleted**, leaving both IDs live at once. Re-read the console output before
+deciding whether to re-run.
 
 ---
 
@@ -72,17 +124,47 @@ npm install @liiift-studio/sanity-convert-ids-to-slugs
 
 ## Requirements
 
-This package declares the following peer dependencies (you provide them):
+This package supports **Sanity Studio v3, v4, v5 and v6** from a single build.
+It declares the following peer dependencies (you provide them):
 
-| Peer | Supported range |
-|------|-----------------|
-| `sanity` | `^3 \|\| ^4 \|\| ^5` |
-| `react` | `^18 \|\| ^19` |
-| `@sanity/ui` | `^1 \|\| ^2 \|\| ^3` |
-| `@sanity/icons` | `^2 \|\| ^3` |
+| Peer | Declared range | What that means |
+|------|----------------|-----------------|
+| `sanity` | `>=3 <7` | Studio **v3 through v6** |
+| `@sanity/ui` | `>=2 <5` | v2, v3, v4 — see the note below, `<5` is **correct** for Studio v6 |
+| `@sanity/icons` | `>=2 <6` | v2 through v5 |
+| `react` | `^18.0.0 \|\| ^19.0.0` | React 18 or 19 |
+
+> The `@sanity/ui` ceiling of `<5` looks like a mistake at a glance and is not.
+> **Studio v6 ships `@sanity/ui` v4, not v5** — so `>=2 <5` covers every Studio
+> major listed above.
 
 The `client` you pass must have **write and delete** access for the conversion
 to commit.
+
+### How one build spans four Studio majors
+
+The two libraries made breaking changes that are invisible to the type-checker:
+
+- **`@sanity/ui` v4** moved `Tooltip`, `Menu`, `MenuButton`, `MenuItem`, `Code`,
+  `Popover`, `Autocomplete`, `Toast` and `useToast` out of the package root and
+  into subpath entries.
+- **`@sanity/icons` v5** removed every named `*Icon` export.
+
+The trap is that **both packages still *declare* the removed names in their
+`.d.ts`, typed as `never`.** A named import therefore type-checks cleanly,
+compiles, ships — and then throws at runtime in the Studio.
+
+So this package **imports no `@sanity/ui` or `@sanity/icons` symbol directly.**
+Every primitive and icon is routed through
+[`@liiift-studio/sanity-ui-compat`](https://www.npmjs.com/package/@liiift-studio/sanity-ui-compat),
+which resolves the *installed* namespace at runtime and falls back to a plain DOM
+element if a given primitive is absent. That indirection, not a version matrix in
+CI, is what makes one artifact work across v3–v6.
+
+> **How far this is actually verified.** v6 support rests on the declared peer
+> ranges, a green build, and use in three in-house Studios. It has **not** been
+> exercised broadly in a running Sanity 6 Studio — treat v6 as supported and
+> lightly travelled, and please file an issue if you hit a gap.
 
 ---
 
