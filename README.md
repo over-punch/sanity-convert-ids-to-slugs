@@ -86,7 +86,7 @@ the browser console.
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/Liiift-Studio/sanity-convert-ids-to-slugs/main/assets/data-flow.svg?v=1"
+    src="https://raw.githubusercontent.com/over-punch/sanity-convert-ids-to-slugs/main/assets/data-flow.svg?v=1"
     alt="Data flow: pick a typeface in the Danger Mode panel; a GROQ query resolves the typeface's font references against the Sanity dataset; for each font _id, if it has a slug.current the tool create-replaces the document under the slug as its new _id, rewrites every referencing document from the old ID to the slug, and deletes the original (irreversible) — fonts without a slug are skipped."
     width="560"
   />
