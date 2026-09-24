@@ -2,7 +2,7 @@
 
 A Sanity Studio utility component that **migrates a typeface's font document `_id`s from auto-generated IDs to slug-based IDs** — and, in the same pass, **rewrites every reference and deletes the originals** so nothing is left dangling. The payoff is cleaner, human-readable document IDs (and the tidier URLs and content management that follow); the mechanism is a destructive, irreversible migration, gated behind an explicit Danger Mode.
 
-[![npm](https://img.shields.io/npm/v/@liiift-studio/sanity-convert-ids-to-slugs.svg)](https://www.npmjs.com/package/@liiift-studio/sanity-convert-ids-to-slugs)
+[![npm](https://img.shields.io/npm/v/@overpunch/sanity-convert-ids-to-slugs.svg)](https://www.npmjs.com/package/@overpunch/sanity-convert-ids-to-slugs)
 ![Sanity](https://img.shields.io/badge/Sanity-Studio_v3_to_v6-f03e2f.svg)
 ![React](https://img.shields.io/badge/React-18_and_19-61dafb.svg)
 ![license](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -114,10 +114,10 @@ Regenerate the diagram with `npm run capture` (source: `scripts/data-flow.mmd`).
 ## Installation
 
 ```bash
-npm install @liiift-studio/sanity-convert-ids-to-slugs
+npm install @overpunch/sanity-convert-ids-to-slugs
 ```
 
-> The package is **scoped** — use the full `@liiift-studio/…` name. There is no
+> The package is **scoped** — use the full `@overpunch/…` name. There is no
 > unscoped `sanity-convert-ids-to-slugs` package.
 
 ---
@@ -156,7 +156,7 @@ compiles, ships — and then throws at runtime in the Studio.
 
 So this package **imports no `@sanity/ui` or `@sanity/icons` symbol directly.**
 Every primitive and icon is routed through
-[`@liiift-studio/sanity-ui-compat`](https://www.npmjs.com/package/@liiift-studio/sanity-ui-compat),
+[`@overpunch/sanity-ui-compat`](https://www.npmjs.com/package/@overpunch/sanity-ui-compat),
 which resolves the *installed* namespace at runtime and falls back to a plain DOM
 element if a given primitive is absent. That indirection, not a version matrix in
 CI, is what makes one artifact work across v3–v6.
@@ -178,7 +178,7 @@ client and a small amount of state to track Danger Mode.
 import {useState} from 'react'
 import {useClient} from 'sanity'
 import {TransferIcon} from '@sanity/icons'
-import ConvertIdsToSlug from '@liiift-studio/sanity-convert-ids-to-slugs'
+import ConvertIdsToSlug from '@overpunch/sanity-convert-ids-to-slugs'
 
 export default function IdSlugMigrator() {
 	const client = useClient({apiVersion: '2024-01-01'})
