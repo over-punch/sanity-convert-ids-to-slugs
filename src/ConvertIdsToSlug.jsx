@@ -1,6 +1,6 @@
 // Component for converting document IDs to slug-based IDs
-import { Stack, Grid, Heading, Text, Button, Select } from '@liiift-studio/sanity-ui-compat'
-import { LockIcon, UnlockIcon } from '@liiift-studio/sanity-ui-compat/icons'
+import { Stack, Grid, Heading, Text, Button, Select } from '@overpunch/sanity-ui-compat'
+import { LockIcon, UnlockIcon } from '@overpunch/sanity-ui-compat/icons'
 import { useState, useEffect } from 'react'
 import DangerModeWarning, { shouldShowDangerWarning } from './DangerModeWarning'
 

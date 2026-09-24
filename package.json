@@ -1,5 +1,5 @@
 {
-  "name": "@liiift-studio/sanity-convert-ids-to-slugs",
+  "name": "@overpunch/sanity-convert-ids-to-slugs",
   "version": "2.0.2",
   "description": "Convert document IDs to slug-based IDs in Sanity Studio with automatic reference updating",
   "main": "dist/index.js",
@@ -54,6 +54,6 @@
     "access": "public"
   },
   "dependencies": {
-    "@liiift-studio/sanity-ui-compat": "^0.1.0"
+    "@overpunch/sanity-ui-compat": "^0.1.0"
   }
 }
